@@ -7,9 +7,9 @@
 #include <math.h>
 #include <errno.h>
 
-#define MAX_ITERATIONS 1000
 
 int numOfClusters = 0;
+int iterations = 0;
 int numOfElements = 0;
 
 /* This function goes through that data points and assigns them to a cluster */
@@ -73,15 +73,17 @@ void calcKmeans(double k_means_x[], double k_means_y[], double data_x_points[], 
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2)
+    if (argc != 3)
     {
-        printf("Please include an argument after the program name to list how many clusters.\n");
-        printf("e.g. To indicate 3 clusters, run: ./kmeans 3\n");
+        printf("Please include an argument after the program name to list how many clusters and interations.\n");
+        printf("eg. To indicate 5 interations, run ./kmeans 3 5\n");
         exit(-1);
     }
 
     numOfClusters = atoi(argv[1]);
     printf("Ok %d clusters it is.\n", numOfClusters);
+    iterations = atoi(argv[2]);
+    printf("Ok %d iterations it is.\n", iterations);
 
     // allocate memory for arrays
     double *k_means_x = (double *)malloc(sizeof(double) * numOfClusters);
@@ -160,24 +162,22 @@ int main(int argc, char *argv[])
         k_means_y[i] = data_y_points[random];
     }
 
-    printf("Running k-means algorithm for %d iterations...\n\n", MAX_ITERATIONS);
+    printf("Running k-means algorithm for %d iterations...\n\n", iterations);
     for (int i = 0; i < numOfClusters; i++)
     {
         printf("Initial K-means: (%f, %f)\n", k_means_x[i], k_means_y[i]);
     }
 
+    clock_t start_time = clock();
     int count = 0;
-    while (count < MAX_ITERATIONS)
-    {
-        // assign the data points to a cluster
+    while (count < iterations) {
         assign2Cluster(k_means_x, k_means_y, data_x_points, data_y_points, k_assignment, numOfElements, numOfClusters);
-
-        // recalculate k means
         calcKmeans(k_means_x, k_means_y, data_x_points, data_y_points, k_assignment, numOfElements, numOfClusters);
-
         count++;
     }
+    clock_t end_time = clock();
 
+    printf("Execution time: %f seconds\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);
     printf("--------------------------------------------------\n");
     printf("FINAL RESULTS:\n");
     for (int i = 0; i < numOfClusters; i++)
@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
     printf("--------------------------------------------------\n");
 
     // Write the final results to an output file
-    FILE *output_fp = fopen("output.txt", "w");
+    FILE *output_fp = fopen("results/output_seq.txt", "w");
     if (!output_fp)
     {
         perror("fopen");

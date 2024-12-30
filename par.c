@@ -1,21 +1,15 @@
-/*  This is an implementation of the k-means clustering algorithm (aka Lloyd's algorithm) using MPI (message passing interface). */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <unistd.h>
 #include <math.h>
-#include <errno.h>
 #include <mpi.h>
-
-#define MAX_ITERATIONS 1000
 
 int numOfClusters = 0;
 int numOfElements = 0;
 int num_of_processes = 0;
 
 /* This function goes through that data points and assigns them to a cluster */
-void assign2Cluster(double k_x[], double k_y[], double recv_x[], double recv_y[], int assign[], int start, int end)
+void assign2Cluster(double k_x[], double k_y[], double recv_x[], double recv_y[], int assign[], int start, int end, int numOfClusters)
 {
     for (int i = start; i < end; i++)
     {
@@ -43,7 +37,7 @@ void assign2Cluster(double k_x[], double k_y[], double recv_x[], double recv_y[]
 
 /* Recalculate k-means of each cluster because each data point may have
    been reassigned to a new cluster for each iteration of the algorithm */
-void calcKmeans(double k_means_x[], double k_means_y[], double data_x_points[], double data_y_points[], int k_assignment[])
+void calcKmeans(double k_means_x[], double k_means_y[], double data_x_points[], double data_y_points[], int k_assignment[], int numOfElements, int numOfClusters)
 {
     double total_x = 0;
     double total_y = 0;
@@ -98,24 +92,20 @@ int main(int argc, char *argv[])
     double *recv_y = NULL;
     int *recv_assign = NULL;
 
+    int max_iterations = 0;
+
     if (world_rank == 0)
     {
-        if (argc != 2)
+        if (argc != 4)
         {
-            printf("Please include an argument after the program name to list how many processes.\n");
-            printf("e.g. To indicate 4 processes, run: mpirun -n 4 ./kmeans 4\n");
+            printf("Please include arguments after the program name to list how many processes, the number of clusters, and the number of iterations.\n");
+            printf("e.g. To indicate 4 processes, 3 clusters, and 1000 iterations, run: mpirun -n 4 ./kmeans 4 3 1000\n");
             exit(-1);
         }
 
         num_of_processes = atoi(argv[1]);
-
-        char buffer[2];
-        printf("How many clusters would you like to analyze for? ");
-        scanf("%s", buffer);
-        printf("\n");
-
-        numOfClusters = atoi(buffer);
-        printf("Ok %d clusters it is.\n", numOfClusters);
+        numOfClusters = atoi(argv[2]);
+        max_iterations = atoi(argv[3]);
 
         // broadcast the number of clusters to all nodes
         MPI_Bcast(&numOfClusters, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -129,8 +119,6 @@ int main(int argc, char *argv[])
             perror("malloc");
             exit(-1);
         }
-
-        printf("Reading input data from file...\n\n");
 
         FILE *fp = fopen("input.txt", "r");
 
@@ -151,8 +139,6 @@ int main(int argc, char *argv[])
                 numOfElements++;
             }
         }
-
-        printf("There are a total number of %d elements in the file.\n", numOfElements);
 
         // broadcast the number of elements to all nodes
         MPI_Bcast(&numOfElements, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -199,17 +185,13 @@ int main(int argc, char *argv[])
             k_means_x[i] = data_x_points[random];
             k_means_y[i] = data_y_points[random];
         }
-
-        printf("Running k-means algorithm for %d iterations...\n\n", MAX_ITERATIONS);
-        for (int i = 0; i < numOfClusters; i++)
-        {
-            printf("Initial K-means: (%f, %f)\n", k_means_x[i], k_means_y[i]);
-        }
     }
     else
     { // I am a worker node
 
         num_of_processes = atoi(argv[1]);
+        numOfClusters = atoi(argv[2]);
+        max_iterations = atoi(argv[3]);
 
         // receive broadcast of number of clusters
         MPI_Bcast(&numOfClusters, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -257,15 +239,16 @@ int main(int argc, char *argv[])
     MPI_Scatterv(data_x_points, sendcounts, displs, MPI_DOUBLE, recv_x, local_numOfElements, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Scatterv(data_y_points, sendcounts, displs, MPI_DOUBLE, recv_y, local_numOfElements, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
+    double start_time = MPI_Wtime();
     int count = 0;
-    while (count < MAX_ITERATIONS)
+    while (count < max_iterations)
     {
         // broadcast k-means arrays
         MPI_Bcast(k_means_x, numOfClusters, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Bcast(k_means_y, numOfClusters, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
         // assign the data points to a cluster
-        assign2Cluster(k_means_x, k_means_y, recv_x, recv_y, recv_assign, 0, local_numOfElements);
+        assign2Cluster(k_means_x, k_means_y, recv_x, recv_y, recv_assign, 0, local_numOfElements, numOfClusters);
 
         // gather back k-cluster assignments
         MPI_Gatherv(recv_assign, local_numOfElements, MPI_INT, k_assignment, sendcounts, displs, MPI_INT, 0, MPI_COMM_WORLD);
@@ -273,14 +256,16 @@ int main(int argc, char *argv[])
         // let the root process recalculate k means
         if (world_rank == 0)
         {
-            calcKmeans(k_means_x, k_means_y, data_x_points, data_y_points, k_assignment);
+            calcKmeans(k_means_x, k_means_y, data_x_points, data_y_points, k_assignment, numOfElements, numOfClusters);
         }
 
         count++;
     }
+    double end_time = MPI_Wtime();
 
     if (world_rank == 0)
     {
+        printf("Execution time: %f seconds\n", end_time - start_time);
         printf("--------------------------------------------------\n");
         printf("FINAL RESULTS:\n");
         for (int i = 0; i < numOfClusters; i++)
@@ -290,7 +275,7 @@ int main(int argc, char *argv[])
         printf("--------------------------------------------------\n");
 
         // Write the final results to an output file
-        FILE *output_fp = fopen("output.txt", "w");
+        FILE *output_fp = fopen("results/output_par.txt", "w");
         if (!output_fp)
         {
             perror("fopen");

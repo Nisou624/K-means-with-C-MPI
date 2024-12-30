@@ -2,6 +2,11 @@
 
 This repository contains implementations of the K-means clustering algorithm in both sequential and parallel (MPI) versions, along with scripts for data generation and visualization.
 
+## Folders
+
+- **build**: Contains the object files for the codes.
+- **results**: Contains the mesurements & results text files.
+
 ## Files
 
 - **seq.c**: Sequential (classic) K-means implementation in C.
@@ -11,6 +16,8 @@ This repository contains implementations of the K-means clustering algorithm in 
 - **seq_output.txt**: Output file for the sequential K-means implementation.
 - **par_output.txt**: Output file for the parallel MPI K-means implementation.
 - **viz.py**: Python script to visualize the outputs as graphs.
+- **generate_graph.py**: Visualization script for the comparaison of Exec times.
+- **atb.sh**: Bash script that runs and mesure Exec times of sequential and parallel K-means codes.
 
 ## Usage
 

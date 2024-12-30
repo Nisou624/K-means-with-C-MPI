@@ -5,7 +5,7 @@ import numpy as np
 data_points = []
 centroids = []
 
-with open("output.txt", "r") as file:
+with open("output_par.txt", "r") as file:
     for line in file:
         parts = line.strip().split()
         if parts[0] == 'C':
