@@ -1,5 +1,3 @@
-/*  This is an implementation of the k-means clustering algorithm (aka Lloyd's algorithm) without MPI. */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -7,13 +5,12 @@
 #include <math.h>
 #include <errno.h>
 
-
 int numOfClusters = 0;
 int iterations = 0;
 int numOfElements = 0;
 
-/* This function goes through that data points and assigns them to a cluster */
-void assign2Cluster(double k_x[], double k_y[], double data_x[], double data_y[], int assign[], int numOfElements, int numOfClusters)
+/* Cette fonction parcourt les points de données et les assigne à un cluster */
+void assignerAuxClusters(double k_x[], double k_y[], double data_x[], double data_y[], int assign[], int numOfElements, int numOfClusters)
 {
     for (int i = 0; i < numOfElements; i++)
     {
@@ -26,7 +23,7 @@ void assign2Cluster(double k_x[], double k_y[], double data_x[], double data_y[]
             double y = data_y[i] - k_y[j];
             double temp_dist = sqrt((x * x) + (y * y));
 
-            // new minimum distance found
+            // nouvelle distance minimale trouvée
             if (temp_dist < min_dist)
             {
                 min_dist = temp_dist;
@@ -34,14 +31,14 @@ void assign2Cluster(double k_x[], double k_y[], double data_x[], double data_y[]
             }
         }
 
-        // update the cluster assignment of this data point
+        // mettre à jour l'assignation du cluster de ce point de données
         assign[i] = k_min_index;
     }
 }
 
-/* Recalculate k-means of each cluster because each data point may have
-   been reassigned to a new cluster for each iteration of the algorithm */
-void calcKmeans(double k_means_x[], double k_means_y[], double data_x_points[], double data_y_points[], int k_assignment[], int numOfElements, int numOfClusters)
+/* Recalculer les k-means de chaque cluster car chaque point de données peut avoir
+   été réassigné à un nouveau cluster pour chaque itération de l'algorithme */
+void calculerKmeans(double k_means_x[], double k_means_y[], double data_x_points[], double data_y_points[], int k_assignment[], int numOfElements, int numOfClusters)
 {
     double total_x = 0;
     double total_y = 0;
@@ -75,17 +72,17 @@ int main(int argc, char *argv[])
 {
     if (argc != 3)
     {
-        printf("Please include an argument after the program name to list how many clusters and interations.\n");
-        printf("eg. To indicate 5 interations, run ./kmeans 3 5\n");
+        printf("Veuillez inclure un argument après le nom du programme pour indiquer combien de clusters et d'itérations.\n");
+        printf("ex. Pour indiquer 5 itérations, exécutez ./kmeans 3 5\n");
         exit(-1);
     }
 
     numOfClusters = atoi(argv[1]);
-    printf("Ok %d clusters it is.\n", numOfClusters);
+    printf("D'accord, ce sera %d clusters.\n", numOfClusters);
     iterations = atoi(argv[2]);
-    printf("Ok %d iterations it is.\n", iterations);
+    printf("D'accord, ce sera %d itérations.\n", iterations);
 
-    // allocate memory for arrays
+    // allouer de la mémoire pour les tableaux
     double *k_means_x = (double *)malloc(sizeof(double) * numOfClusters);
     double *k_means_y = (double *)malloc(sizeof(double) * numOfClusters);
 
@@ -95,7 +92,7 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-    printf("Reading input data from file...\n\n");
+    printf("Lecture des données d'entrée à partir du fichier...\n\n");
 
     FILE *fp = fopen("input.txt", "r");
 
@@ -105,7 +102,7 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-    // count number of lines to find out how many elements
+    // compter le nombre de lignes pour déterminer combien d'éléments
     int c = 0;
     numOfElements = 0;
     while (!feof(fp))
@@ -117,9 +114,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("There are a total number of %d elements in the file.\n", numOfElements);
+    printf("Il y a un nombre total de %d éléments dans le fichier.\n", numOfElements);
 
-    // allocate memory for an array of data points
+    // allouer de la mémoire pour un tableau de points de données
     double *data_x_points = (double *)malloc(sizeof(double) * numOfElements);
     double *data_y_points = (double *)malloc(sizeof(double) * numOfElements);
     int *k_assignment = (int *)malloc(sizeof(int) * numOfElements);
@@ -130,10 +127,10 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-    // reset file pointer to origin of file
+    // réinitialiser le pointeur de fichier à l'origine du fichier
     fseek(fp, 0, SEEK_SET);
 
-    // now read in points and fill the arrays
+    // maintenant lire les points et remplir les tableaux
     int i = 0;
 
     double point_x = 0, point_y = 0;
@@ -143,15 +140,15 @@ int main(int argc, char *argv[])
         data_x_points[i] = point_x;
         data_y_points[i] = point_y;
 
-        // assign the initial k means to zero
+        // assigner les k-means initiaux à zéro
         k_assignment[i] = 0;
         i++;
     }
 
-    // close file pointer
+    // fermer le pointeur de fichier
     fclose(fp);
 
-    // randomly select initial k-means
+    // sélectionner aléatoirement les k-means initiaux
     time_t t;
     srand((unsigned)time(&t));
     int random;
@@ -162,17 +159,17 @@ int main(int argc, char *argv[])
         k_means_y[i] = data_y_points[random];
     }
 
-    printf("Running k-means algorithm for %d iterations...\n\n", iterations);
+    printf("Exécution de l'algorithme k-means pour %d itérations...\n\n", iterations);
     for (int i = 0; i < numOfClusters; i++)
     {
-        printf("Initial K-means: (%f, %f)\n", k_means_x[i], k_means_y[i]);
+        printf("K-means initiaux : (%f, %f)\n", k_means_x[i], k_means_y[i]);
     }
 
     clock_t start_time = clock();
     int count = 0;
     while (count < iterations) {
-        assign2Cluster(k_means_x, k_means_y, data_x_points, data_y_points, k_assignment, numOfElements, numOfClusters);
-        calcKmeans(k_means_x, k_means_y, data_x_points, data_y_points, k_assignment, numOfElements, numOfClusters);
+        assignerAuxClusters(k_means_x, k_means_y, data_x_points, data_y_points, k_assignment, numOfElements, numOfClusters);
+        calculerKmeans(k_means_x, k_means_y, data_x_points, data_y_points, k_assignment, numOfElements, numOfClusters);
         count++;
     }
     clock_t end_time = clock();
@@ -182,11 +179,11 @@ int main(int argc, char *argv[])
     printf("FINAL RESULTS:\n");
     for (int i = 0; i < numOfClusters; i++)
     {
-        printf("Cluster #%d: (%f, %f)\n", i, k_means_x[i], k_means_y[i]);
+        printf("Cluster #%d : (%f, %f)\n", i, k_means_x[i], k_means_y[i]);
     }
     printf("--------------------------------------------------\n");
 
-    // Write the final results to an output file
+    // Écrire les résultats finaux dans un fichier de sortie
     FILE *output_fp = fopen("results/output_seq.txt", "w");
     if (!output_fp)
     {
@@ -199,7 +196,7 @@ int main(int argc, char *argv[])
         fprintf(output_fp, "%f %f %d\n", data_x_points[i], data_y_points[i], k_assignment[i]);
     }
 
-    // Write the centroids to the output file
+    // Écrire les centroïdes dans le fichier de sortie
     for (int i = 0; i < numOfClusters; i++)
     {
         fprintf(output_fp, "C %f %f %d\n", k_means_x[i], k_means_y[i], i);
@@ -207,7 +204,7 @@ int main(int argc, char *argv[])
 
     fclose(output_fp);
 
-    // deallocate memory and clean up
+    // désallouer la mémoire et nettoyer
     free(k_means_x);
     free(k_means_y);
     free(data_x_points);

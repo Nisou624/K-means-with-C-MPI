@@ -8,8 +8,8 @@ int numOfClusters = 0;
 int numOfElements = 0;
 int num_of_processes = 0;
 
-/* This function goes through that data points and assigns them to a cluster */
-void assign2Cluster(double k_x[], double k_y[], double recv_x[], double recv_y[], int assign[], int start, int end, int numOfClusters)
+/* Cette fonction parcourt les points de données et les assigne à un cluster */
+void assignerAuxClusters(double k_x[], double k_y[], double recv_x[], double recv_y[], int assign[], int start, int end, int numOfClusters)
 {
     for (int i = start; i < end; i++)
     {
@@ -22,7 +22,7 @@ void assign2Cluster(double k_x[], double k_y[], double recv_x[], double recv_y[]
             double y = recv_y[i] - k_y[j];
             double temp_dist = sqrt((x * x) + (y * y));
 
-            // new minimum distance found
+            // nouvelle distance minimale trouvée
             if (temp_dist < min_dist)
             {
                 min_dist = temp_dist;
@@ -30,14 +30,14 @@ void assign2Cluster(double k_x[], double k_y[], double recv_x[], double recv_y[]
             }
         }
 
-        // update the cluster assignment of this data point
+        // mettre à jour l'assignation du cluster de ce point de données
         assign[i] = k_min_index;
     }
 }
 
-/* Recalculate k-means of each cluster because each data point may have
-   been reassigned to a new cluster for each iteration of the algorithm */
-void calcKmeans(double k_means_x[], double k_means_y[], double data_x_points[], double data_y_points[], int k_assignment[], int numOfElements, int numOfClusters)
+/* Recalculer les k-means de chaque cluster car chaque point de données peut avoir
+   été réassigné à un nouveau cluster pour chaque itération de l'algorithme */
+void calculerKmeans(double k_means_x[], double k_means_y[], double data_x_points[], double data_y_points[], int k_assignment[], int numOfElements, int numOfClusters)
 {
     double total_x = 0;
     double total_y = 0;
@@ -69,25 +69,25 @@ void calcKmeans(double k_means_x[], double k_means_y[], double data_x_points[], 
 
 int main(int argc, char *argv[])
 {
-    // initialize the MPI environment
+    // initialiser l'environnement MPI
     MPI_Init(NULL, NULL);
 
-    // get number of processes
+    // obtenir le nombre de processus
     int world_size;
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-    // get rank
+    // obtenir le rang
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-    // send buffers
-    double *k_means_x = NULL;  // k means corresponding x values
-    double *k_means_y = NULL;  // k means corresponding y values
-    int *k_assignment = NULL;  // each data point is assigned to a cluster
+    // buffers d'envoi
+    double *k_means_x = NULL;  // valeurs x correspondantes des k-means
+    double *k_means_y = NULL;  // valeurs y correspondantes des k-means
+    int *k_assignment = NULL;  // chaque point de données est assigné à un cluster
     double *data_x_points = NULL;
     double *data_y_points = NULL;
 
-    // receive buffer
+    // buffer de réception
     double *recv_x = NULL;
     double *recv_y = NULL;
     int *recv_assign = NULL;
@@ -98,8 +98,8 @@ int main(int argc, char *argv[])
     {
         if (argc != 4)
         {
-            printf("Please include arguments after the program name to list how many processes, the number of clusters, and the number of iterations.\n");
-            printf("e.g. To indicate 4 processes, 3 clusters, and 1000 iterations, run: mpirun -n 4 ./kmeans 4 3 1000\n");
+            printf("Veuillez inclure des arguments après le nom du programme pour indiquer combien de processus, le nombre de clusters et le nombre d'itérations.\n");
+            printf("par exemple, pour indiquer 4 processus, 3 clusters et 1000 itérations, exécutez : mpirun -n 4 ./kmeans 4 3 1000\n");
             exit(-1);
         }
 
@@ -107,10 +107,10 @@ int main(int argc, char *argv[])
         numOfClusters = atoi(argv[2]);
         max_iterations = atoi(argv[3]);
 
-        // broadcast the number of clusters to all nodes
+        // diffuser le nombre de clusters à tous les nœuds
         MPI_Bcast(&numOfClusters, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-        // allocate memory for arrays
+        // allouer de la mémoire pour les tableaux
         k_means_x = (double *)malloc(sizeof(double) * numOfClusters);
         k_means_y = (double *)malloc(sizeof(double) * numOfClusters);
 
@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
             exit(-1);
         }
 
-        // count number of lines to find out how many elements
+        // compter le nombre de lignes pour connaître le nombre d'éléments
         int c = 0;
         numOfElements = 0;
         while (!feof(fp))
@@ -140,10 +140,10 @@ int main(int argc, char *argv[])
             }
         }
 
-        // broadcast the number of elements to all nodes
+        // diffuser le nombre d'éléments à tous les nœuds
         MPI_Bcast(&numOfElements, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-        // allocate memory for an array of data points
+        // allouer de la mémoire pour un tableau de points de données
         data_x_points = (double *)malloc(sizeof(double) * numOfElements);
         data_y_points = (double *)malloc(sizeof(double) * numOfElements);
         k_assignment = (int *)malloc(sizeof(int) * numOfElements);
@@ -154,10 +154,10 @@ int main(int argc, char *argv[])
             exit(-1);
         }
 
-        // reset file pointer to origin of file
+        // réinitialiser le pointeur de fichier à l'origine du fichier
         fseek(fp, 0, SEEK_SET);
 
-        // now read in points and fill the arrays
+        // maintenant lire les points et remplir les tableaux
         int i = 0;
 
         double point_x = 0, point_y = 0;
@@ -167,15 +167,15 @@ int main(int argc, char *argv[])
             data_x_points[i] = point_x;
             data_y_points[i] = point_y;
 
-            // assign the initial k means to zero
+            // assigner les k-means initiaux à zéro
             k_assignment[i] = 0;
             i++;
         }
 
-        // close file pointer
+        // fermer le pointeur de fichier
         fclose(fp);
 
-        // randomly select initial k-means
+        // sélectionner aléatoirement les k-means initiaux
         time_t t;
         srand((unsigned)time(&t));
         int random;
@@ -187,19 +187,19 @@ int main(int argc, char *argv[])
         }
     }
     else
-    { // I am a worker node
+    { // Je suis un nœud de travail
 
         num_of_processes = atoi(argv[1]);
         numOfClusters = atoi(argv[2]);
         max_iterations = atoi(argv[3]);
 
-        // receive broadcast of number of clusters
+        // recevoir la diffusion du nombre de clusters
         MPI_Bcast(&numOfClusters, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-        // receive broadcast of number of elements
+        // recevoir la diffusion du nombre d'éléments
         MPI_Bcast(&numOfElements, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-        // allocate memory for arrays
+        // allouer de la mémoire pour les tableaux
         k_means_x = (double *)malloc(sizeof(double) * numOfClusters);
         k_means_y = (double *)malloc(sizeof(double) * numOfClusters);
 
@@ -210,7 +210,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    // allocate memory for receive buffers
+    // allouer de la mémoire pour les buffers de réception
     int elements_per_process = numOfElements / num_of_processes;
     int remainder = numOfElements % num_of_processes;
     int local_numOfElements = elements_per_process + (world_rank < remainder ? 1 : 0);
@@ -225,8 +225,8 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-    // Distribute the work among all nodes. The data points itself will stay constant and
-    // not change for the duration of the algorithm.
+    // Distribuer le travail entre tous les nœuds. Les points de données eux-mêmes resteront constants et
+    // ne changeront pas pendant la durée de l'algorithme.
     int *sendcounts = (int *)malloc(sizeof(int) * world_size);
     int *displs = (int *)malloc(sizeof(int) * world_size);
 
@@ -243,20 +243,20 @@ int main(int argc, char *argv[])
     int count = 0;
     while (count < max_iterations)
     {
-        // broadcast k-means arrays
+        // diffuser les tableaux de k-means
         MPI_Bcast(k_means_x, numOfClusters, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Bcast(k_means_y, numOfClusters, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-        // assign the data points to a cluster
-        assign2Cluster(k_means_x, k_means_y, recv_x, recv_y, recv_assign, 0, local_numOfElements, numOfClusters);
+        // assigner les points de données à un cluster
+        assignerAuxClusters(k_means_x, k_means_y, recv_x, recv_y, recv_assign, 0, local_numOfElements, numOfClusters);
 
-        // gather back k-cluster assignments
+        // rassembler les assignations de clusters
         MPI_Gatherv(recv_assign, local_numOfElements, MPI_INT, k_assignment, sendcounts, displs, MPI_INT, 0, MPI_COMM_WORLD);
 
-        // let the root process recalculate k means
+        // laisser le processus racine recalculer les k-means
         if (world_rank == 0)
         {
-            calcKmeans(k_means_x, k_means_y, data_x_points, data_y_points, k_assignment, numOfElements, numOfClusters);
+            calculerKmeans(k_means_x, k_means_y, data_x_points, data_y_points, k_assignment, numOfElements, numOfClusters);
         }
 
         count++;
@@ -270,11 +270,11 @@ int main(int argc, char *argv[])
         printf("FINAL RESULTS:\n");
         for (int i = 0; i < numOfClusters; i++)
         {
-            printf("Cluster #%d: (%f, %f)\n", i, k_means_x[i], k_means_y[i]);
+            printf("Cluster #%d : (%f, %f)\n", i, k_means_x[i], k_means_y[i]);
         }
         printf("--------------------------------------------------\n");
 
-        // Write the final results to an output file
+        // Écrire les résultats finaux dans un fichier de sortie
         FILE *output_fp = fopen("results/output_par.txt", "w");
         if (!output_fp)
         {
@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
             fprintf(output_fp, "%f %f %d\n", data_x_points[i], data_y_points[i], k_assignment[i]);
         }
 
-        // Write the centroids to the output file
+        // Écrire les centroïdes dans le fichier de sortie
         for (int i = 0; i < numOfClusters; i++)
         {
             fprintf(output_fp, "C %f %f %d\n", k_means_x[i], k_means_y[i], i);
@@ -296,7 +296,7 @@ int main(int argc, char *argv[])
         fclose(output_fp);
     }
 
-    // deallocate memory and clean up
+    // désallouer la mémoire et nettoyer
     free(k_means_x);
     free(k_means_y);
     free(data_x_points);

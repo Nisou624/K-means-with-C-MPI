@@ -19,8 +19,13 @@ OUTPUT_FILE="results/results.txt"
 # Clear the output file
 > $OUTPUT_FILE
 
-#clear the results folder
+# Clear the results folder
 rm -rf results/*
+
+# Compile the sequential and parallel k-means code
+mkdir -p build
+gcc -o build/seq src/seq.c
+mpicc -o build/par src/par.c
 
 # Function to run the sequential k-means code
 run_sequential() {

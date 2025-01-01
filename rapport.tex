@@ -1,0 +1,273 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+\title{Comparaison des Performances de l'Algorithme K-means : Implémentations Séquentielle et Parallèle}
+\author{Anis Tilmatine \& Marouf Mohamed Rachid}
+\date{}
+
+\lstset{
+    language=C,
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numbersep=5pt,
+    backgroundcolor=\color{white},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    frame=single,
+    tabsize=2,
+    captionpos=b,
+    breaklines=true,
+    breakatwhitespace=false,
+    escapeinside={\%*}{*)},
+    morekeywords={MPI_Init, MPI_Comm_size, MPI_Comm_rank, MPI_Bcast, MPI_Scatterv, MPI_Gatherv, MPI_Wtime, MPI_Finalize}
+}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+L'algorithme de partitionnement k-means est une méthode populaire pour diviser un ensemble de données en $k$ groupes. Ce document explique l'algorithme k-means, ses implémentations séquentielle et parallèle (MPI), et fournit une comparaison des performances entre les deux.
+
+\section{Algorithme K-means}
+L'algorithme k-means fonctionne comme suit :
+\begin{enumerate}
+    \item Initialiser $k$ centroïdes de manière aléatoire.
+    \item Assigner chaque point de données au centroïde le plus proche.
+    \item Recalculer les centroïdes comme la moyenne de tous les points qui leur sont assignés.
+    \item Répéter les étapes 2 et 3 jusqu'à convergence ou jusqu'à atteindre un nombre maximal d'itérations.
+\end{enumerate}
+
+\section{Implémentation Séquentielle de K-means}
+L'implémentation séquentielle de l'algorithme k-means traite tous les points de données sur un seul cœur de CPU. Voici les principales fonctions de l'algorithme k-means séquentiel :
+
+\begin{lstlisting}[language=C, caption=Principales fonctions de l'algorithme k-means séquentiel]
+void assignerAuxClusters(double k_x[], double k_y[], double data_x[], double data_y[], int assign[], int numOfElements, int numOfClusters) {
+    for (int i = 0; i < numOfElements; i++) {
+        double min_dist = 1e9;
+        int k_min_index = 0;
+        for (int j = 0; j < numOfClusters; j++) {
+            double x = data_x[i] - k_x[j];
+            double y = data_y[i] - k_y[j];
+            double temp_dist = sqrt((x * x) + (y * y));
+            if (temp_dist < min_dist) {
+                min_dist = temp_dist;
+                k_min_index = j;
+            }
+        }
+        assign[i] = k_min_index;
+    }
+}
+
+void calculerKmeans(double k_means_x[], double k_means_y[], double data_x_points[], double data_y_points[], int k_assignment[], int numOfElements, int numOfClusters) {
+    double total_x = 0;
+    double total_y = 0;
+    int numOfpoints = 0;
+    for (int i = 0; i < numOfClusters; i++) {
+        total_x = 0;
+        total_y = 0;
+        numOfpoints = 0;
+        for (int j = 0; j < numOfElements; j++) {
+            if (k_assignment[j] == i) {
+                total_x += data_x_points[j];
+                total_y += data_y_points[j];
+                numOfpoints++;
+            }
+        }
+        if (numOfpoints != 0) {
+            k_means_x[i] = total_x / numOfpoints;
+            k_means_y[i] = total_y / numOfpoints;
+        }
+    }
+}
+\end{lstlisting}
+
+\section{Implémentation Parallèle de K-means}
+L'implémentation parallèle de l'algorithme k-means utilise MPI pour distribuer la charge de travail sur plusieurs processus. Voici les principales fonctions de l'algorithme k-means parallèle :
+
+\begin{lstlisting}[language=C, caption=Principales fonctions de l'algorithme k-means parallèle]
+void assignerAuxClusters(double k_x[], double k_y[], double recv_x[], double recv_y[], int assign[], int start, int end, int numOfClusters) {
+    for (int i = start; i < end; i++) {
+        double min_dist = 1e9;
+        int k_min_index = 0;
+        for (int j = 0; j < numOfClusters; j++) {
+            double x = recv_x[i] - k_x[j];
+            double y = recv_y[i] - k_y[j];
+            double temp_dist = sqrt((x * x) + (y * y));
+            if (temp_dist < min_dist) {
+                min_dist = temp_dist;
+                k_min_index = j;
+            }
+        }
+        assign[i] = k_min_index;
+    }
+}
+
+void calculerKmeans(double k_means_x[], double k_means_y[], double data_x_points[], double data_y_points[], int k_assignment[], int numOfElements, int numOfClusters) {
+    double total_x = 0;
+    double total_y = 0;
+    int numOfpoints = 0;
+    for (int i = 0; i < numOfClusters; i++) {
+        total_x = 0;
+        total_y = 0;
+        numOfpoints = 0;
+        for (int j = 0; j < numOfElements; j++) {
+            if (k_assignment[j] == i) {
+                total_x += data_x_points[j];
+                total_y += data_y_points[j];
+                numOfpoints++;
+            }
+        }
+        if (numOfpoints != 0) {
+            k_means_x[i] = total_x / numOfpoints;
+            k_means_y[i] = total_y / numOfpoints;
+        }
+    }
+}
+\end{lstlisting}
+
+\subsection{Parties MPI}
+L'implémentation parallèle utilise les fonctions MPI suivantes pour la communication et la synchronisation entre les processus :
+\begin{itemize}
+    \item \texttt{MPI\_Init} et \texttt{MPI\_Finalize} : Initialiser et finaliser l'environnement MPI.
+    \item \texttt{MPI\_Comm\_size} et \texttt{MPI\_Comm\_rank} : Obtenir le nombre de processus et le rang du processus courant.
+    \item \texttt{MPI\_Bcast} : Diffuser les données à tous les processus.
+    \item \texttt{MPI\_Scatterv} et \texttt{MPI\_Gatherv} : Distribuer et rassembler les données entre les processus.
+\end{itemize}
+
+\section{Script Bash}
+Le script bash automatise le processus d'exécution des implémentations séquentielle et parallèle de k-means pour différentes valeurs de \texttt{MAX\_ITERATIONS} et mesure le temps d'exécution. Voici le script bash :
+
+\begin{lstlisting}[language=bash, caption=Script bash pour automatiser l'exécution des implémentations de k-means]
+#!/bin/bash
+
+# Vérifier si le nombre d'arguments est correct
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <nombre_d'exécutions>"
+    exit 1
+fi
+
+# Nombre d'exécutions
+NUM_RUNS=$1
+
+# Tableau des valeurs de MAX_ITERATIONS
+MAX_ITERATIONS_VALUES=(1000 10000 100000 1000000)
+
+# Fichier de sortie pour les résultats
+OUTPUT_FILE="results.txt"
+
+# Effacer le fichier de sortie
+> $OUTPUT_FILE
+
+# Fonction pour exécuter le code k-means séquentiel
+run_sequential() {
+    local max_iterations=$1
+    local total_time=0
+
+    for ((i=0; i<NUM_RUNS; i++)); do
+        ./kmeans_sequential 3 $max_iterations > temp_output.txt
+        exec_time=$(grep "Execution time" temp_output.txt | awk '{print $3}')
+        total_time=$(echo "$total_time + $exec_time" | bc -l)
+    done
+
+    avg_time=$(echo "$total_time / $NUM_RUNS" | bc -l)
+    echo "Sequential, $max_iterations, $avg_time" >> $OUTPUT_FILE
+}
+
+# Fonction pour exécuter le code k-means parallèle (MPI)
+run_parallel() {
+    local max_iterations=$1
+    local total_time=0
+
+    for ((i=0; i<NUM_RUNS; i++)); do
+        mpirun -n 4 ./kmeans_parallel 4 3 $max_iterations > temp_output.txt
+        exec_time=$(grep "Execution time" temp_output.txt | awk '{print $3}')
+        total_time=$(echo "$total_time + $exec_time" | bc -l)
+    done
+
+    avg_time=$(echo "$total_time / $NUM_RUNS" | bc -l)
+    echo "Parallel, $max_iterations, $avg_time" >> $OUTPUT_FILE
+}
+
+# Exécuter le code k-means pour chaque valeur de MAX_ITERATIONS
+for max_iterations in "${MAX_ITERATIONS_VALUES[@]}"; do
+    run_sequential $max_iterations
+    run_parallel $max_iterations
+done
+
+# Générer le graphique
+python3 generate_graph.py $OUTPUT_FILE
+\end{lstlisting}
+
+\section{Script Python}
+Le script Python lit les résultats du fichier de sortie et génère un graphique. Voici le script Python :
+
+\begin{lstlisting}[language=python, caption=Script Python pour générer le graphique]
+import matplotlib.pyplot as plt
+import sys
+
+# Vérifier si le nombre correct d'arguments est fourni
+if len(sys.argv) != 2:
+    print("Usage: python3 generate_graph.py <fichier_de_résultats>")
+    sys.exit(1)
+
+# Lire le fichier de résultats
+results_file = sys.argv[1]
+sequential_times = []
+parallel_times = []
+max_iterations_values = []
+
+with open(results_file, 'r') as file:
+    for line in file:
+        parts = line.strip().split(', ')
+        if parts[0] == "Sequential":
+            max_iterations_values.append(int(parts[1]))
+            sequential_times.append(float(parts[2]))
+        elif parts[0] == "Parallel":
+            parallel_times.append(float(parts[2]))
+
+# Tracer les résultats
+plt.figure(figsize=(10, 6))
+plt.plot(max_iterations_values, sequential_times, marker='o', label='Séquentiel')
+plt.plot(max_iterations_values, parallel_times, marker='x', label='Parallèle')
+plt.xlabel('MAX_ITERATIONS')
+plt.ylabel('Temps d\'exécution moyen (s)')
+plt.title('Comparaison des Performances de K-means')
+plt.legend()
+plt.grid(True)
+plt.savefig('performance_comparison.png')
+plt.show()
+\end{lstlisting}
+
+\section{Résultats et Interprétation}
+Le graphique ci-dessous montre le temps d'exécution moyen pour les implémentations séquentielle et parallèle de k-means pour différentes valeurs de \texttt{MAX\_ITERATIONS}.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{results/performance_comparison.png}
+    \caption{Comparaison des Performances de K-means}
+    \label{fig:performance}
+\end{figure}
+
+À partir du graphique, nous pouvons observer les points suivants :
+\begin{itemize}
+    \item L'implémentation séquentielle montre une augmentation linéaire du temps d'exécution avec l'augmentation de \texttt{MAX\_ITERATIONS}.
+    \item L'implémentation parallèle montre également une augmentation du temps d'exécution, mais elle est généralement plus élevée que l'implémentation séquentielle.
+    \item L'implémentation parallèle ne montre pas d'amélioration significative des performances par rapport à l'implémentation séquentielle. Cela pourrait être dû au surcoût de communication, au déséquilibre de charge ou à d'autres inefficacités dans le code parallèle.
+\end{itemize}
+
+\section{Conclusion}
+L'algorithme k-means est une méthode de partitionnement largement utilisée, et ses performances peuvent être améliorées en utilisant des techniques de calcul parallèle. Cependant, l'implémentation parallèle doit être soigneusement optimisée pour minimiser le surcoût de communication et assurer un équilibre de charge efficace. Les travaux futurs pourraient se concentrer sur l'optimisation supplémentaire de l'implémentation parallèle de k-means pour obtenir de meilleures performances.
+
+\end{document}
